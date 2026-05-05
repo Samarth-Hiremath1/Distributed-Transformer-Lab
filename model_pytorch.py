@@ -33,9 +33,9 @@ class CausalSelfAttention(nn.Module):
         self.register_buffer("bias", torch.tril(torch.ones(config.block_size, config.block_size))
                                      .view(1, 1, config.block_size, config.block_size))
 
-    def forward(self, x, kv_cache=None):
-        # B = batch size, T = sequence length, C = embedding dimensionality (d_model)
-        B, T, C = x.size()
+    def forward(self, x, layer_idx=None, kv_cache=None):
+        # B = batch size, T_q = sequence length of queries, C = embedding dimensionality (d_model)
+        B, T_q, C = x.size()
         
         # calculate query, key, values for all heads in batch and move head forward to be the batch dim
         qkv = self.c_attn(x)
@@ -43,12 +43,19 @@ class CausalSelfAttention(nn.Module):
         
         # hs (head size) = C // n_head
         # Transform to shape (B, n_head, T, hs)
-        q = q.view(B, T, self.n_head, C // self.n_head).transpose(1, 2)
-        k = k.view(B, T, self.n_head, C // self.n_head).transpose(1, 2)
-        v = v.view(B, T, self.n_head, C // self.n_head).transpose(1, 2)
+        q = q.view(B, T_q, self.n_head, C // self.n_head).transpose(1, 2)
+        k = k.view(B, T_q, self.n_head, C // self.n_head).transpose(1, 2)
+        v = v.view(B, T_q, self.n_head, C // self.n_head).transpose(1, 2)
+
+        # If cache provided: append new K/V, compute attention over full cache
+        if kv_cache is not None and layer_idx is not None:
+            kv_cache.append(layer_idx, k, v)
+            k, v = kv_cache.get(layer_idx)
+
+        T_k = k.size(2)
 
         # Causal scaled dot-product attention
-        # We multiply Q (B, n_head, T, hs) by K^T (B, n_head, hs, T) to get attention scores (B, n_head, T, T)
+        # We multiply Q (B, n_head, T_q, hs) by K^T (B, n_head, hs, T_k) to get attention scores (B, n_head, T_q, T_k)
         att = (q @ k.transpose(-2, -1))
         
         # Why divide by sqrt(d_k)?
@@ -59,21 +66,20 @@ class CausalSelfAttention(nn.Module):
         
         # What is the mask doing?
         # The mask forces attention weights to be -infinity for all future tokens (upper triangular part).
-        # When passed through softmax, these -infinities become exactly 0.
-        # Why do we need it for autoregressive generation?
-        # Because when predicting token t+1, the model should only have access to tokens up to t.
-        # Looking ahead would be "cheating" during training and impossible during inference.
-        att = att.masked_fill(self.bias[:, :, :T, :T] == 0, float('-inf'))
+        # We only apply the mask if we are passing multiple queries (e.g. prefill step). 
+        # For single token generation (T_q == 1) using KV cache, we attend to all past tokens without masking.
+        if T_q > 1:
+            att = att.masked_fill(self.bias[:, :, T_k-T_q:T_k, :T_k] == 0, float('-inf'))
         
         # Apply softmax to get probability distribution over past tokens
         att = F.softmax(att, dim=-1)
         
         # Multiply attention weights by values
-        # att (B, n_head, T, T) @ v (B, n_head, T, hs) -> y (B, n_head, T, hs)
+        # att (B, n_head, T_q, T_k) @ v (B, n_head, T_k, hs) -> y (B, n_head, T_q, hs)
         y = att @ v
         
         # Re-assemble all head outputs side by side
-        y = y.transpose(1, 2).contiguous().view(B, T, C)
+        y = y.transpose(1, 2).contiguous().view(B, T_q, C)
         
         # Output projection back to d_model
         y = self.c_proj(y)
@@ -106,9 +112,9 @@ class TransformerBlock(nn.Module):
         self.ln_2 = nn.LayerNorm(config.d_model, bias=config.bias)
         self.mlp = MLP(config)
 
-    def forward(self, x):
+    def forward(self, x, layer_idx=None, kv_cache=None):
         # Residual connections around both sub-layers
-        x = x + self.attn(self.ln_1(x))
+        x = x + self.attn(self.ln_1(x), layer_idx=layer_idx, kv_cache=kv_cache)
         x = x + self.mlp(self.ln_2(x))
         return x
 
@@ -127,12 +133,17 @@ class GPT(nn.Module):
         # weight tying
         self.transformer.wte.weight = self.lm_head.weight
 
-    def forward(self, idx, targets=None):
+    def forward(self, idx, targets=None, kv_cache=None):
         device = idx.device
         b, t = idx.size()
-        assert t <= self.config.block_size, f"Cannot forward sequence of length {t}, block size is only {self.config.block_size}"
         
-        pos = torch.arange(0, t, dtype=torch.long, device=device)
+        # If using cache, we only forward the new tokens. The position should reflect 
+        # the absolute position in the sequence, which includes the length of the cache.
+        past_length = 0 if (kv_cache is None or kv_cache.k_cache[0] is None) else kv_cache.k_cache[0].size(2)
+        
+        assert past_length + t <= self.config.block_size, f"Cannot forward sequence of length {past_length + t}, block size is only {self.config.block_size}"
+        
+        pos = torch.arange(past_length, past_length + t, dtype=torch.long, device=device)
         
         # Token embedding + learned positional embedding
         tok_emb = self.transformer.wte(idx)
@@ -140,8 +151,8 @@ class GPT(nn.Module):
         x = tok_emb + pos_emb
         
         # N TransformerBlocks
-        for block in self.transformer.h:
-            x = block(x)
+        for i, block in enumerate(self.transformer.h):
+            x = block(x, layer_idx=i, kv_cache=kv_cache)
             
         # Final LayerNorm
         x = self.transformer.ln_f(x)
