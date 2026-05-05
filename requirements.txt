@@ -1,0 +1,13 @@
+torch
+torchvision
+transformers
+jax[cpu]
+flax
+optax
+fastapi
+uvicorn
+prometheus-client
+locust
+numpy
+matplotlib
+tqdm
