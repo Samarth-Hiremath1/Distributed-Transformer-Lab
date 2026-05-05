@@ -4,7 +4,7 @@ import tracemalloc
 import jax
 import jax.numpy as jnp
 import numpy as np
-from model_jax import GPT, GPTConfig, jit_forward
+from model_jax import GPT, GPTConfig
 
 def benchmark_jax():
     print("Initializing JAX/Flax model...")
@@ -25,6 +25,10 @@ def benchmark_jax():
     dummy_input = jnp.zeros((1, 32), dtype=jnp.int32)
     variables = model.init(rng, dummy_input)
     params = variables['params']
+
+    @jax.jit
+    def jit_forward(p, idx):
+        return model.apply({'params': p}, idx)
 
     seq_lengths = [32, 64, 128, 256]
     results = {}

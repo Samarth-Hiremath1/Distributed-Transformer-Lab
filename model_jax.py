@@ -145,15 +145,4 @@ class GPT(nn.Module):
         
         return logits
 
-# -----------------------------------------------------------------------------
-# Jitted Apply Function:
-# We wrap the Flax model's apply function with jax.jit.
-# This tells JAX to trace this specific function and compile it with XLA.
-# -----------------------------------------------------------------------------
-@jax.jit
-def jit_forward(params, idx):
-    # This function takes the pure state (params) and inputs (idx)
-    # and returns the result, conforming to JAX's pure functional requirement.
-    # When jitted, XLA fuses the massive chain of transformer operations.
-    model = GPT(GPTConfig())
-    return model.apply({'params': params}, idx)
+
