@@ -18,6 +18,13 @@ WORKERS = [
 ]
 
 rr_index = 0
+ACTIVE_WORKER_COUNT = 3
+
+@app.post("/set_active_workers/{count}")
+async def set_active_workers(count: int):
+    global ACTIVE_WORKER_COUNT
+    ACTIVE_WORKER_COUNT = min(max(count, 1), len(WORKERS))
+    return {"status": "ok", "active_workers": ACTIVE_WORKER_COUNT}
 
 async def check_health():
     async with httpx.AsyncClient(timeout=2.0) as client:
@@ -37,7 +44,7 @@ async def check_health():
             except Exception:
                 w["healthy"] = False
                 
-    healthy_count = sum(1 for w in WORKERS if w["healthy"])
+    healthy_count = sum(1 for w in WORKERS[:ACTIVE_WORKER_COUNT] if w["healthy"])
     ACTIVE_WORKERS.set(healthy_count)
 
 async def health_check_loop():
@@ -54,7 +61,9 @@ async def startup_event():
 @app.post("/generate")
 async def generate(request: Request, mode: str = "roundrobin"):
     global rr_index
-    healthy_workers = [w for w in WORKERS if w["healthy"]]
+    # Only consider workers up to ACTIVE_WORKER_COUNT
+    available_pool = WORKERS[:ACTIVE_WORKER_COUNT]
+    healthy_workers = [w for w in available_pool if w["healthy"]]
     
     if not healthy_workers:
         raise HTTPException(status_code=503, detail="No healthy workers available")
