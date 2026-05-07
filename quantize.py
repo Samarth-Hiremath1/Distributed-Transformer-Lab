@@ -72,12 +72,16 @@ def get_model_size_mb(model, filename="temp_model.pt"):
 
 def main():
     print("Initializing FP32 Model...")
+    
+    # Set quantization engine for Mac (required for Apple Silicon / Intel CPUs)
+    torch.backends.quantized.engine = 'qnnpack'
+    
     config = GPTConfig(
         n_layer=4,
         n_head=4,
         d_model=128,
         d_ff=512,
-        block_size=64,
+        block_size=512,
         vocab_size=50257
     )
     model_fp32 = GPT(config)

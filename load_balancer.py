@@ -1,0 +1,81 @@
+import asyncio
+import httpx
+from fastapi import FastAPI, Request, HTTPException
+from fastapi.responses import Response
+from prometheus_client import make_asgi_app
+from metrics import ACTIVE_WORKERS
+
+app = FastAPI()
+
+# Mount prometheus metrics endpoint
+metrics_app = make_asgi_app()
+app.mount("/metrics", metrics_app)
+
+WORKERS = [
+    {"url": "http://127.0.0.1:8001", "id": "worker_1", "healthy": False, "avg_latency": float('inf'), "error_count": 0},
+    {"url": "http://127.0.0.1:8002", "id": "worker_2", "healthy": False, "avg_latency": float('inf'), "error_count": 0},
+    {"url": "http://127.0.0.1:8003", "id": "worker_3", "healthy": False, "avg_latency": float('inf'), "error_count": 0},
+]
+
+rr_index = 0
+
+async def check_health():
+    async with httpx.AsyncClient(timeout=2.0) as client:
+        for w in WORKERS:
+            try:
+                resp = await client.get(f"{w['url']}/health")
+                if resp.status_code == 200:
+                    data = resp.json()
+                    if data["error_count"] > 10:
+                        w["healthy"] = False
+                    else:
+                        w["healthy"] = True
+                        w["avg_latency"] = data["avg_latency_ms"]
+                        w["error_count"] = data["error_count"]
+                else:
+                    w["healthy"] = False
+            except Exception:
+                w["healthy"] = False
+                
+    healthy_count = sum(1 for w in WORKERS if w["healthy"])
+    ACTIVE_WORKERS.set(healthy_count)
+
+async def health_check_loop():
+    while True:
+        await check_health()
+        await asyncio.sleep(5)
+
+@app.on_event("startup")
+async def startup_event():
+    # Initial health check
+    await check_health()
+    asyncio.create_task(health_check_loop())
+
+@app.post("/generate")
+async def generate(request: Request, mode: str = "roundrobin"):
+    global rr_index
+    healthy_workers = [w for w in WORKERS if w["healthy"]]
+    
+    if not healthy_workers:
+        raise HTTPException(status_code=503, detail="No healthy workers available")
+        
+    if mode == "latency":
+        target = min(healthy_workers, key=lambda w: w["avg_latency"])
+    else:
+        # Default to round-robin
+        target = healthy_workers[rr_index % len(healthy_workers)]
+        rr_index += 1
+
+    body = await request.json()
+    
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        try:
+            resp = await client.post(f"{target['url']}/generate", json=body)
+            return resp.json()
+        except Exception as e:
+            target["healthy"] = False # Optimistically mark unhealthy
+            raise HTTPException(status_code=502, detail=f"Worker {target['id']} failed: {str(e)}")
+
+@app.get("/status")
+async def status():
+    return {"workers": WORKERS, "routing_decisions": {"mode": "supported: roundrobin, latency"}}

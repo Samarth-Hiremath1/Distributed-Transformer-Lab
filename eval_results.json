@@ -1,0 +1,44 @@
+[
+    {
+        "strategy": "greedy",
+        "model": "FP32",
+        "perplexity": 8792.674153645834,
+        "latency_ms": 48.4784651780501,
+        "consistency_%": 100.0
+    },
+    {
+        "strategy": "greedy",
+        "model": "INT8",
+        "perplexity": 8788.323567708334,
+        "latency_ms": 61.83603481622413,
+        "consistency_%": 100.0
+    },
+    {
+        "strategy": "top_k",
+        "model": "FP32",
+        "perplexity": 12980.0244140625,
+        "latency_ms": 77.30349426856264,
+        "consistency_%": 1.5
+    },
+    {
+        "strategy": "top_k",
+        "model": "INT8",
+        "perplexity": 12927.961067708333,
+        "latency_ms": 89.24356386608754,
+        "consistency_%": 1.6666666666666667
+    },
+    {
+        "strategy": "nucleus",
+        "model": "FP32",
+        "perplexity": 42036.634375,
+        "latency_ms": 152.0883027347736,
+        "consistency_%": 0.0
+    },
+    {
+        "strategy": "nucleus",
+        "model": "INT8",
+        "perplexity": 41994.83098958333,
+        "latency_ms": 163.68206386299184,
+        "consistency_%": 0.0
+    }
+]
