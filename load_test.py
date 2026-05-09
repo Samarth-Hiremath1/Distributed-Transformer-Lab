@@ -11,11 +11,11 @@ class InferenceUser(HttpUser):
     
     @task(4)
     def short_prompt(self):
-        self.client.post("/generate", json={"prompt": "Hello world", "max_tokens": 10}, catch_response=True)
+        self.client.post("/generate", json={"prompt": "Hello world", "max_tokens": 10})
         
     @task(1)
     def long_prompt(self):
-        self.client.post("/generate", json={"prompt": "Once upon a time in a galaxy", "max_tokens": 50}, catch_response=True)
+        self.client.post("/generate", json={"prompt": "Once upon a time in a galaxy", "max_tokens": 50})
 
 if __name__ == "__main__":
     results = []
@@ -69,9 +69,13 @@ if __name__ == "__main__":
                         reqs = float(row.get("Requests", 0))
                         fails = float(row.get("Failures", 0))
                         
-                        rps = float(row.get("Requests/s", 0))
-                        p50 = float(row.get("50%", 0))
-                        p95 = float(row.get("95%", 0))
+                        def safe_float(val):
+                            if val == 'N/A' or val == '': return 0.0
+                            return float(val)
+                            
+                        rps = safe_float(row.get("Requests/s", 0))
+                        p50 = safe_float(row.get("50%", 0))
+                        p95 = safe_float(row.get("95%", 0))
                         error_rate = (fails / reqs) * 100 if reqs > 0 else 0
                         
                         print(f"Results: {rps:.2f} rps, p50: {p50}ms, p95: {p95}ms, error_rate: {error_rate:.2f}%")
