@@ -2,13 +2,11 @@ import asyncio
 import httpx
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import Response
-from prometheus_client import make_asgi_app
-from metrics import ACTIVE_WORKERS
+from metrics import ACTIVE_WORKERS, metrics_app
 
 app = FastAPI()
 
 # Mount prometheus metrics endpoint
-metrics_app = make_asgi_app()
 app.mount("/metrics", metrics_app)
 
 WORKERS = [

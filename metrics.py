@@ -1,4 +1,4 @@
-from prometheus_client import Histogram, Counter, Gauge
+from prometheus_client import Histogram, Counter, Gauge, make_asgi_app
 
 # Define metrics
 REQUEST_LATENCY = Histogram(
@@ -24,3 +24,7 @@ BATCH_SIZE = Histogram(
     'Distribution of inference batch sizes',
     buckets=[1, 2, 4, 8, 16]
 )
+
+# Helper to mount metrics on FastAPI
+# Usage: app.mount("/metrics", metrics_app)
+metrics_app = make_asgi_app()

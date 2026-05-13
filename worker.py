@@ -8,9 +8,10 @@ from pydantic import BaseModel
 from transformers import GPT2Tokenizer
 from model_pytorch import GPT, GPTConfig
 from decoding import generate
-from metrics import REQUEST_LATENCY, REQUESTS_TOTAL, BATCH_SIZE
+from metrics import REQUEST_LATENCY, REQUESTS_TOTAL, BATCH_SIZE, metrics_app
 
 app = FastAPI()
+app.mount("/metrics", metrics_app)
 
 # Global state
 class WorkerState:
