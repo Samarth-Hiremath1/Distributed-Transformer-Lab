@@ -24,8 +24,9 @@ def main():
     
     # Extract quant stats
     int8_latency = quant_res.get("INT8", {}).get("latency_ms", "N/A")
-    int8_memory = quant_res.get("INT8", {}).get("memory_mb", "N/A")
+    int8_size = quant_res.get("INT8", {}).get("size_mb", "N/A")
     int8_ppl = quant_res.get("INT8", {}).get("perplexity", "N/A")
+    fp32_size = quant_res.get("FP32", {}).get("size_mb", "N/A")
     fp32_ppl = quant_res.get("FP32", {}).get("perplexity", "N/A")
     
     # Extract distributed stats
@@ -41,15 +42,15 @@ def main():
     print("\n" + "="*85)
     print("DISTRIBUTED TRANSFORMER LAB - MASTER RESULTS")
     print("="*85)
-    print(f"{'config':<30} | {'p50_ms':<10} | {'throughput (tok/s)':<20} | {'memory_mb':<10} | {'perplexity':<10}")
+    print(f"{'config':<30} | {'p50_ms':<10} | {'throughput (tok/s)':<20} | {'size_mb':<10} | {'perplexity':<10}")
     print("-" * 85)
     
     def fmt(val, dec=2):
         return f"{val:.{dec}f}" if isinstance(val, (int, float)) else str(val)
         
-    print(f"{'Baseline (FP32, no cache)':<30} | {fmt(baseline_latency):<10} | {fmt(baseline_throughput):<20} | {fmt(baseline_memory):<10} | {fmt(fp32_ppl):<10}")
+    print(f"{'Baseline (FP32, no cache)':<30} | {fmt(baseline_latency):<10} | {fmt(baseline_throughput):<20} | {fmt(fp32_size):<10} | {fmt(fp32_ppl):<10}")
     print(f"{'+ KV Cache':<30} | {fmt(cache_latency):<10} | {'N/A':<20} | {'N/A':<10} | {'N/A':<10}")
-    print(f"{'+ INT8 Quantization':<30} | {fmt(int8_latency):<10} | {'N/A':<20} | {fmt(int8_memory):<10} | {fmt(int8_ppl):<10}")
+    print(f"{'+ INT8 Quantization':<30} | {fmt(int8_latency):<10} | {'N/A':<20} | {fmt(int8_size):<10} | {fmt(int8_ppl):<10}")
     print(f"{'+ Distributed (3 workers)':<30} | {'N/A':<10} | {fmt(dist_throughput):<20} | {'N/A':<10} | {'N/A':<10}")
     print("="*85)
 

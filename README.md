@@ -16,12 +16,12 @@ A production-grade machine learning systems project implementing a GPT-style tra
 
 ## Master Results
 
-| Configuration | p50 Latency (ms) | Throughput (tok/s) | Memory (MB) | Perplexity |
-|---------------|------------------|--------------------|-------------|------------|
-| Baseline (FP32, no cache) | 4.50 | 28424.99 | ~32 | 58261.20 |
+| Configuration | p50 Latency (ms) | Throughput (tok/s) | Size (MB) | Perplexity |
+|---------------|------------------|--------------------|-----------|------------|
+| Baseline (FP32, no cache) | 4.50 | 28424.99 | 31.84 | 58261.20 |
 | + KV Cache | 38.47 | N/A | N/A | N/A |
-| + INT8 Quantization | 6.80 | N/A | ~36 | 58259.20 |
-| + Distributed (3 workers) | N/A | 585.40 | N/A | N/A |
+| + INT8 Quantization | 6.80 | N/A | 35.92 | 58259.20 |
+| + Distributed (3 workers) | N/A | 571.20 | N/A | N/A |
 
 > [!NOTE]
 > Throughput in the distributed setting is limited by CPU context switching and FastAPI overhead on a single machine.
