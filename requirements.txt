@@ -6,9 +6,11 @@ flax
 optax
 fastapi
 uvicorn
+pydantic
+httpx
+requests
 prometheus-client
 locust
 numpy
 matplotlib
 tqdm
- 
