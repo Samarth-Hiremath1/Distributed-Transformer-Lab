@@ -22,6 +22,7 @@ ACTIVE_WORKERS = Gauge(
 BATCH_SIZE = Histogram(
     'batch_size',
     'Distribution of inference batch sizes',
+    ['worker_id'],
     buckets=[1, 2, 4, 8, 16]
 )
 

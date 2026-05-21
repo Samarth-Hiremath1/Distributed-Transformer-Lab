@@ -71,7 +71,7 @@ async def batch_processor():
         batch = state.queue[:8]
         state.queue = state.queue[8:]
         
-        BATCH_SIZE.observe(len(batch))
+        BATCH_SIZE.labels(worker_id=state.worker_id).observe(len(batch))
         
         try:
             # Prepare inputs
