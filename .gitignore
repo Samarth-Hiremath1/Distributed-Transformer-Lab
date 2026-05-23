@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+*.pyo
+locust_results_*
+temp_model.pt
+.DS_Store
