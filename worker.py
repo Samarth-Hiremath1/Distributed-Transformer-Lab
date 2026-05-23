@@ -1,6 +1,7 @@
 import os
 import time
 import asyncio
+from contextlib import asynccontextmanager
 import torch
 import torch.nn as nn
 from fastapi import FastAPI, Request, HTTPException
@@ -10,7 +11,15 @@ from model_pytorch import GPT, GPTConfig
 from decoding import generate
 from metrics import REQUEST_LATENCY, REQUESTS_TOTAL, BATCH_SIZE, metrics_app
 
-app = FastAPI()
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    state.model = load_model()
+    state.tokenizer = GPT2Tokenizer.from_pretrained("gpt2")
+    state.tokenizer.pad_token = state.tokenizer.eos_token
+    state.batch_task = asyncio.create_task(batch_processor())
+    yield
+
+app = FastAPI(lifespan=lifespan)
 app.mount("/metrics", metrics_app)
 
 # Global state
@@ -50,15 +59,6 @@ def load_model():
         model_fp32, {nn.Linear}, dtype=torch.qint8
     )
     return model_int8
-
-@app.on_event("startup")
-async def startup_event():
-    state.model = load_model()
-    state.tokenizer = GPT2Tokenizer.from_pretrained("gpt2")
-    state.tokenizer.pad_token = state.tokenizer.eos_token
-    
-    # Start background batching loop
-    state.batch_task = asyncio.create_task(batch_processor())
 
 async def batch_processor():
     while True:

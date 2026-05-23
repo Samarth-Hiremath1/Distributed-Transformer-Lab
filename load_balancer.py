@@ -1,10 +1,17 @@
 import asyncio
+from contextlib import asynccontextmanager
 import httpx
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import Response
 from metrics import ACTIVE_WORKERS, metrics_app
 
-app = FastAPI()
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    await check_health()
+    asyncio.create_task(health_check_loop())
+    yield
+
+app = FastAPI(lifespan=lifespan)
 
 # Mount prometheus metrics endpoint
 app.mount("/metrics", metrics_app)
@@ -49,12 +56,6 @@ async def health_check_loop():
     while True:
         await check_health()
         await asyncio.sleep(5)
-
-@app.on_event("startup")
-async def startup_event():
-    # Initial health check
-    await check_health()
-    asyncio.create_task(health_check_loop())
 
 @app.post("/generate")
 async def generate(request: Request, mode: str = "roundrobin"):
