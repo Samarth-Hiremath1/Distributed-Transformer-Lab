@@ -62,6 +62,30 @@ python load_test.py
 python results_table.py
 ```
 
+### 6. Train (Optional)
+```bash
+# Single-process training on TinyShakespeare
+python train_single.py
+
+# Distributed training across N processes via DDP
+torchrun --nproc_per_node=4 train_ddp.py
+```
+
+### 7. Evaluate Decoding Strategies (Optional)
+```bash
+# Compares greedy, top-k, and nucleus sampling on latency, perplexity, and consistency
+python eval_pipeline.py
+```
+
+### 8. Scaling & Framework Analysis (Optional)
+```bash
+# Runs DDP training at 1/2/4 workers and plots throughput scaling curve
+python scaling_analysis.py
+
+# Compares PyTorch vs JAX inference latency across sequence lengths
+python compare_frameworks.py
+```
+
 ## Tech Stack
 - **Frameworks**: PyTorch, JAX, FastAPI
 - **Inference**: Prometheus, Locust, Uvicorn
